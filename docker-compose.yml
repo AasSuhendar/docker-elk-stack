@@ -1,0 +1,65 @@
+version: '3.7'
+
+volumes:
+  elasticsearch_data: {}
+
+networks:
+  net-elk:
+    driver: bridge
+
+services:
+
+  elasticsearch:
+    image: 'telkomindonesia/alpine:elasticsearch-7.10'
+    networks:
+      - net-elk
+    ports:
+      - 9200:9200
+      - 9300:9300
+    environment:
+      - ES_JAVA_OPTS=-Xms256M -Xmx512M
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_PASSWORD=es-pass
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    restart: always
+
+  kibana:
+    image: 'docker.elastic.co/kibana/kibana:7.10.2'
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=elastic
+      - ELASTICSEARCH_PASSWORD=es-pass
+    networks:
+      - net-elk
+    depends_on:
+      - elasticsearch
+    restart: always
+
+  filebeat:
+    user: root
+    command: --strict.perms=false
+    volumes:
+      - ${PWD}/filebeat/filebeat.docker.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    image: 'docker.elastic.co/beats/filebeat:7.10.2' 
+    depends_on:
+      - elasticsearch
+    networks:
+      - net-elk
+
+  # apm:
+  #   image: telkomindonesia/alpine:apm-7.4
+  #   environment:
+  #     ES_HOST: elasticsearch
+  #     ES_PORT: 9200
+  #   ports:
+  #     - "8200:8200"
+  #   networks:
+  #     - apinet
+  #   depends_on:
+  #     - elasticsearch

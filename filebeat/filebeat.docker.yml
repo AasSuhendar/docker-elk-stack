@@ -1,0 +1,38 @@
+setup.template:
+  enabled: true
+  name: "filebeat"
+  pattern: "filebeat-*"
+  settings:
+    index:
+      codec: best_compression
+
+setup.ilm:
+  enabled: auto
+  policy_name: "filebeat"
+  rollover_alias: "filebeat"
+  pattern: "{now/d}-000001"
+
+filebeat.inputs:
+- type: container
+  encoding: utf-8
+  paths: 
+    - '/var/lib/docker/containers/*/*.log'
+
+processors:
+- add_docker_metadata:
+    host: "unix:///var/run/docker.sock"
+
+- decode_json_fields:
+    fields: ["message"]
+    target: "json"
+    overwrite_keys: true
+
+output.elasticsearch:
+  hosts: ["elasticsearch:9200"]
+  username: "elastic"
+  password: "es-pass"
+  indices:
+    - index: "filebeat-%{[agent.version]}-%{+yyyy.MM.dd}"
+
+logging.json: true
+logging.metrics.enabled: false
